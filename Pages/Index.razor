@@ -1,0 +1,110 @@
+@page "/"
+
+@using LyricsApp.Models.GeniusAPI.Search;
+@using LyricsApp.Models.GeniusAPI.Songs.SongLyrics;
+@using LyricsApp.Services
+@using LyricsApp.Models
+@using System.Text.RegularExpressions;
+@inject IGeniusApiService geniusApiService
+
+<PageTitle>Lyrics App</PageTitle>
+
+<div class="justify-content-center" style="display: flex; font-family: Verdana; font-weight: bold; font-size: 24px">
+    <span style="color: #72a7fe; margin-right: 8px">Lyrics</span>
+    <span>App</span>
+</div>
+<div class="justify-content-center" style="display: flex; font-family: Verdana; margin-top: 10px">
+    <span>Get the complete lyrics of any given track.</span>
+</div>
+<div class="justify-content-center" style="display: flex; margin-top: 30px">
+    <RadzenTextBox Style="margin-right: 10px; font-family: Verdana" AutoComplete="false" AutoCompleteType="Radzen.Blazor.AutoCompleteType.Off" Placeholder="Taylor Swift" @bind-Value="@searchQuery"></RadzenTextBox>
+    <RadzenButton Icon="search" Text="Search" Click="@Search" Style="font-family: Verdana"></RadzenButton>
+</div>
+
+@if (!showLyrics)
+{
+    <RadzenRow Style="margin-top: 30px">
+        @if (songs is not null)
+        {
+            @foreach (var song in songs)
+            {
+                <RadzenColumn Size="4">
+                    <RadzenCard Style="max-width: 100%; max-height: 100%; width: 100%; height: 100%">
+                        <RadzenStack>
+                            <RadzenImage Path="@song.Thumbnail" Style="max-width: 100%; width: 100%"></RadzenImage>
+                        </RadzenStack>
+                        <RadzenStack Style="margin-top: 10px">
+                            <RadzenText Text="@song.Title" Style="font-family: Verdana; color: #ffffff" TextAlign="Radzen.TextAlign.Center" TextStyle="Radzen.Blazor.TextStyle.Body1"></RadzenText>
+                            <RadzenText Text="@song.Artist" TextAlign="Radzen.TextAlign.Center" TextStyle="Radzen.Blazor.TextStyle.Body2" Style="color: rgba(255, 255, 255, 0.5); font-family: Verdana"></RadzenText>
+                            <RadzenButton Text="Get Lyrics" Click="@(() => SearchLyrics(song.Id))"></RadzenButton>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+            }
+        }
+    </RadzenRow>
+}
+else
+{
+    @if (lyric != null)
+    {
+        <RadzenRow Style="margin-top: 30px">
+            <RadzenColumn Style="margin: 0 auto;">
+                <RadzenCard Style="max-width: 100%; max-height: 100%; width: 100%; height: 100%; background-color: #1c1c1c; color: #ffffff; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.3);">
+                    <RadzenStack>
+                        <RadzenText Text="@lyric.Title" Style="font-family: Verdana; font-size: 24px; font-weight: bold; color: #72a7fe; text-align: center; margin-bottom: 8px;"></RadzenText>
+                        <RadzenText Text="@lyric.Artist" Style="font-family: Verdana; font-size: 14px; color: rgba(255, 255, 255, 0.5); text-align: center;"></RadzenText>
+                    </RadzenStack>
+                    <RadzenStack Style="margin-top: 10px">
+                        @if (!string.IsNullOrEmpty(lyric.Content))
+                        {
+                            <div style="white-space: pre-wrap; font-family: Verdana;">
+                                @((MarkupString)lyric.Content)
+                            </div>
+                        }
+                        else
+                        {
+                            <div>No lyrics found for this song.</div>
+                        }
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        </RadzenRow>
+
+    }
+}
+
+@code
+{
+    private string searchQuery;
+    private List<SongInfo> songs;
+    private LyricsInfo lyric;
+    private bool showLyrics = false;
+
+    private ElementReference lyricsDiv;
+
+    private async Task Search()
+    {
+        if (!string.IsNullOrEmpty(searchQuery))
+        {
+            songs = await geniusApiService.SearchSongAsync(searchQuery);
+            showLyrics = false;
+        }
+    }
+
+    private async Task SearchLyrics(int songId)
+    {
+        lyric = await geniusApiService.SearchLyricsAsync(songId);
+        showLyrics = true;
+        if (lyric != null && !string.IsNullOrEmpty(lyric.Content))
+        {
+            lyric.Content = ConvertToParagraphTags(lyric.Content);
+        }
+    }
+
+    private string ConvertToParagraphTags(string htmlContent)
+    {
+        // Replace all HTML tags with <p> tags except for <br> tags
+        return Regex.Replace(htmlContent, @"<(?!br\s*\/?)[^>]+>", "<p>");
+    }
+}
